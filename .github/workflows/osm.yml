@@ -1,0 +1,26 @@
+name: fetch-osm
+on:
+  push:
+    branches: [osm-fetch]
+    paths: ['osm/request.txt']
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download railway data from Overpass
+        run: |
+          mkdir -p osm
+          Q='[out:json][timeout:300];(way["railway"~"^(rail|abandoned|disused)$"](50.92,-114.30,51.13,-113.86);way["railway"="rail"](51.040,-115.215,51.090,-115.110);way["railway"="rail"](51.360,-116.545,51.410,-116.460););out body geom qt;(node["railway"](50.92,-114.30,51.13,-113.86);node["railway"](51.040,-115.215,51.090,-115.110);node["railway"](51.360,-116.545,51.410,-116.460););out qt;way["highway"]["name"](50.98,-114.08,51.06,-113.98);out tags geom qt;'
+          for EP in https://overpass-api.de/api/interpreter https://overpass.kumi.systems/api/interpreter https://overpass.private.coffee/api/interpreter; do
+            if curl -sS -f -m 400 -A "mapa-vias-calgary/1.0 (github actions)" --data-urlencode "data=$Q" "$EP" -o osm/tracks.json; then echo "ok $EP"; break; fi
+            echo "failed $EP"; sleep 10
+          done
+          ls -la osm; head -c 300 osm/tracks.json
+          gzip -9 -f osm/tracks.json
+      - name: Commit
+        run: |
+          git config user.name "github-actions"; git config user.email "actions@users.noreply.github.com"
+          git add osm/tracks.json.gz; git commit -m "OSM railway data" || true; git push
