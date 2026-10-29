@@ -1,3 +1,3 @@
 # mapa-vias-calgary
 
-Página pessoal de estudo. O conteúdo é criptografado e só abre com senha.
+Personal study page. The content is encrypted and only opens with a password.
