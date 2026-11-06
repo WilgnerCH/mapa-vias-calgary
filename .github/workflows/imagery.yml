@@ -3,6 +3,8 @@ on:
   push:
     branches: [osm-fetch]
     paths: ['imagery/request.txt']
+permissions:
+  contents: write
 jobs:
   fetch:
     runs-on: ubuntu-latest
@@ -29,5 +31,18 @@ jobs:
                   open(f'tiles/{z}_{x}_{y}.jpg', 'wb').write(d); n += 1
           print('tiles', n, x0, x1, y0, y1)
           PY
-      - uses: actions/upload-artifact@v4
-        with: { name: tiles, path: tiles, retention-days: 1 }
+      - name: Stitch and commit
+        run: |
+          pip install pillow >/dev/null
+          python3 - <<'PY'
+          import glob, os
+          from PIL import Image
+          fs = glob.glob('tiles/*.jpg'); xs = sorted({int(f.split('_')[1]) for f in fs}); ys = sorted({int(f.split('_')[2][:-4]) for f in fs})
+          z = os.path.basename(fs[0]).split('_')[0]
+          im = Image.new('RGB', (256 * len(xs), 256 * len(ys)))
+          for f in fs:
+              x = int(f.split('_')[1]); y = int(f.split('_')[2][:-4]); im.paste(Image.open(f), (256 * (x - xs[0]), 256 * (y - ys[0])))
+          im.save('imagery/mosaic.jpg', quality=88); open('imagery/mosaic.txt', 'w').write(f'{z} {xs[0]} {ys[0]} {len(xs)} {len(ys)}\n')
+          PY
+          git config user.name "github-actions"; git config user.email "actions@users.noreply.github.com"
+          git add imagery/mosaic.jpg imagery/mosaic.txt; git commit -m "imagery" || true; git push
