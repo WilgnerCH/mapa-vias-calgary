@@ -1,0 +1,33 @@
+name: fetch-imagery
+on:
+  push:
+    branches: [osm-fetch]
+    paths: ['imagery/request.txt']
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download imagery tiles
+        run: |
+          python3 - <<'PY'
+          import math, urllib.request, os, time
+          z, la0, lo0, la1, lo1 = open('imagery/request.txt').read().split()
+          z = int(z); la0, lo0, la1, lo1 = map(float, (la0, lo0, la1, lo1))
+          def t(lat, lon):
+              n = 2 ** z; x = int((lon + 180) / 360 * n); y = int((1 - math.log(math.tan(math.radians(lat)) + 1 / math.cos(math.radians(lat))) / math.pi) / 2 * n); return x, y
+          x0, y1 = t(la0, lo0); x1, y0 = t(la1, lo1)
+          os.makedirs('tiles', exist_ok=True); n = 0
+          for x in range(x0, x1 + 1):
+              for y in range(y0, y1 + 1):
+                  u = f'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+                  for k in range(3):
+                      try:
+                          d = urllib.request.urlopen(urllib.request.Request(u, headers={'User-Agent': 'mapa-vias-calgary/1.0'}), timeout=30).read(); break
+                      except Exception as e: time.sleep(2)
+                  else: continue
+                  open(f'tiles/{z}_{x}_{y}.jpg', 'wb').write(d); n += 1
+          print('tiles', n, x0, x1, y0, y1)
+          PY
+      - uses: actions/upload-artifact@v4
+        with: { name: tiles, path: tiles, retention-days: 1 }
