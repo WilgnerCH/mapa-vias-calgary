@@ -1,0 +1,1 @@
+[out:json][timeout:200];(way["railway"](52.27,-113.90,52.35,-113.78);node["railway"](52.27,-113.90,52.35,-113.78););out body geom qt;way["highway"]["name"](52.27,-113.90,52.35,-113.78);out tags geom qt;

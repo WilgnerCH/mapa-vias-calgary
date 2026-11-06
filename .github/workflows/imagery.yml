@@ -2,7 +2,7 @@ name: fetch-imagery
 on:
   push:
     branches: [osm-fetch]
-    paths: ['imagery/request.txt']
+    paths: ['imagery/request.txt','imagery/q.txt']
 permissions:
   contents: write
 jobs:
@@ -31,6 +31,13 @@ jobs:
                   open(f'tiles/{z}_{x}_{y}.jpg', 'wb').write(d); n += 1
           print('tiles', n, x0, x1, y0, y1)
           PY
+      - name: Extra Overpass query
+        run: |
+          if [ -f imagery/q.txt ]; then
+            for EP in https://overpass-api.de/api/interpreter https://overpass.kumi.systems/api/interpreter; do
+              if curl -sS -f -m 400 -A "mapa-vias-calgary/1.0 (github actions)" --data-urlencode "data@imagery/q.txt" "$EP" -o imagery/q.json; then gzip -9 -f imagery/q.json; break; fi; sleep 5
+            done
+          fi
       - name: Stitch and commit
         run: |
           pip install pillow >/dev/null
@@ -45,4 +52,4 @@ jobs:
           im.save('imagery/mosaic.jpg', quality=88); open('imagery/mosaic.txt', 'w').write(f'{z} {xs[0]} {ys[0]} {len(xs)} {len(ys)}\n')
           PY
           git config user.name "github-actions"; git config user.email "actions@users.noreply.github.com"
-          git add imagery/mosaic.jpg imagery/mosaic.txt; git commit -m "imagery" || true; git push
+          git add imagery/mosaic.jpg imagery/mosaic.txt imagery/*.gz 2>/dev/null; git commit -m "imagery" || true; git push
