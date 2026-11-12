@@ -1,7 +1,7 @@
 /* Offline copy for the track map. Holds only what the site already serves (the encrypted page and images) plus map tiles already seen. */
-const V = 'tm-shell-v1', TILES = 'tm-tiles-v1', TILE_MAX = 3000;
+const V = 'tm-shell-v2', TILES = 'tm-tiles-v1', TILE_MAX = 3000;
 self.addEventListener('install', () => self.skipWaiting());
-self.addEventListener('activate', e => e.waitUntil((async () => { for (const k of await caches.keys()) if (k !== V && k !== TILES) await caches.delete(k); await self.clients.claim(); })()));
+self.addEventListener('activate', e => e.waitUntil((async () => { for (const k of await caches.keys()) if (k.startsWith('tm-') && k !== V && k !== TILES) await caches.delete(k); /* only this site's old caches */ await self.clients.claim(); })()));
 const PAGE = new URL('index.html', self.registration.scope).href;
 async function page(req) { // always the newest page when there is a connection; the saved copy when there is none
   const c = await caches.open(V);
@@ -29,6 +29,6 @@ self.addEventListener('fetch', e => {
   const r = e.request; if (r.method !== 'GET') return; const u = new URL(r.url);
   if (u.hostname === 'server.arcgisonline.com') return e.respondWith(tile(r));
   if (u.origin !== location.origin || !u.href.startsWith(self.registration.scope)) return;
-  if (r.mode === 'navigate' || u.href === PAGE || u.href === self.registration.scope) return e.respondWith(page(r));
+  if (u.href.split(/[?#]/)[0] === PAGE || u.href.split(/[?#]/)[0] === self.registration.scope) return e.respondWith(page(r)); // only the site page itself, not other apps in subfolders
   if (u.pathname.includes('/data/img/')) return e.respondWith(keep(r));
 });
